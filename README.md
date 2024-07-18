@@ -1,6 +1,10 @@
 # For learning purpose
 
 # ComfyUI Preview Magnifier
-Custom nodes that preview image with a magnifier.
+Custom node that preview image with a magnifier.
 
-![Magnifier Example](example.png)
+![Magnifier Example](example_preview.png)
+
+Custom node that compare two images with a magnifier.
+
+![Magnifier Comparer Example](example_comparer.png)
