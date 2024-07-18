@@ -9,6 +9,6 @@ Repository = "https://github.com/ycchanau/ComfyUI_Preview_Magnifier"
 #  Used by Comfy Registry https://comfyregistry.org
 
 [tool.comfy]
-PublisherId = ""
+PublisherId = "ycchanau"
 DisplayName = "ComfyUI_Preview_Magnifier"
 Icon = ""
