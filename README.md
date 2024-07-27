@@ -1,6 +1,6 @@
 # For learning purpose
 
-# ComfyUI Preview Magnifier
+# ComfyUI Preview Magnifier (Single Image, Comparer, XY-Plot)
 Custom node that preview image with a magnifier.
 
 ![Magnifier Example](example_preview.png)
