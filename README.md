@@ -8,3 +8,7 @@ Custom node that preview image with a magnifier.
 Custom node that compare two images with a magnifier.
 
 ![Magnifier Comparer Example](example_comparer.png)
+
+Custom node that support xy plot with a magnifier.
+
+![Magnifier XY](example_xy.png)

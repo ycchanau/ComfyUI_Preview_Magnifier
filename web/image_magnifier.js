@@ -76,6 +76,47 @@ const ext = {
                 }
             }
         }
+        // XYPreviewImageMagnifier
+        if (nodeData.name === "YC.XYPreviewImageMagnifier") {
+            const onNodeCreated = nodeType.prototype.onNodeCreated;
+            nodeType.prototype.onNodeCreated = async function () {
+                const r = onNodeCreated
+                    ? onNodeCreated.apply(this, arguments)
+                    : undefined
+                const id = ext.uniqueID++
+                const result = await createXYPreviewWidget(this, app, id)
+                this.setSize([400, 400])
+                return r
+            }
+
+            const onExecuted = nodeType.prototype.onExecuted;
+            nodeType.prototype.onExecuted = function (message) {
+                onExecuted === null || onExecuted === void 0 ? void 0 : onExecuted.apply(this, [message]);
+                const data = message.a_images[0];
+                const url = imageDataToUrl(data);
+                const urls = message.a_images.map(data => imageDataToUrl(data));
+
+
+                // send get to the image url to get the image and then get width and height
+                fetch(url).then(r => r.blob()).then(blob => {
+                    const url = URL.createObjectURL(blob);
+                    const img = new Image();
+                    img.src = url;
+                    img.onload = () => {
+                        const img_per_row = this.widgets.find(w => w.name === "img_per_row")?.value || 1;
+                        const img_per_col = Math.ceil(urls.length / img_per_row) || 1;
+                        const aspectRatio = (img.width * img_per_row) / (img.height * img_per_col);
+                        if (aspectRatio > 1) {
+                            this.setSize([600, 600 / aspectRatio + 40]);
+                        } else {
+                            this.setSize([600 * aspectRatio, 600 + 40]);
+                        }
+                    }
+                }).then(() => {
+                    addManifiers(this.magnifierWidget, urls);
+                });
+            }
+        }
     },
 };
 
@@ -208,8 +249,8 @@ async function createPreviewImageWidget(node, app, id) {
     element.appendChild(subDiv);
 
     const widget = {
-        type: "image-widget",
-        name: "image-widget-" + id,
+        type: "magnifier-preview-image-widget",
+        name: "magnifier-preview-image-widget-" + id,
         draw: function (ctx, node, widgetWidth, y, widgetHeight) {
             const hidden =
                 node.flags?.collapsed ||
@@ -300,8 +341,6 @@ async function createPreviewImageWidget(node, app, id) {
 
 function createSubDiv() {
     let subDiv = document.createElement('div');
-    // subDiv.style.width = "100%";
-    // subDiv.style.height = "100%";
     subDiv.style.margin = "5px";
 
     const img = document.createElement('img');
@@ -379,7 +418,7 @@ async function createImageComparerWidget(node, app, id) {
             magnifiers[i].hidden = false;
 
             magnifier.style.backgroundImage = `url(${img.src})`;
-            magnifier.style.width = magnifierWidth+ 'px';
+            magnifier.style.width = magnifierWidth + 'px';
             magnifier.style.height = magnifierHeight + 'px';
             magnifier.style.left = (x - magnifier.offsetWidth / 2 + img.offsetLeft) + 'px';
             magnifier.style.top = (y - magnifier.offsetHeight / 2 + img.offsetTop) + 'px';
@@ -399,8 +438,8 @@ async function createImageComparerWidget(node, app, id) {
     element.appendChild(subDiv2);
 
     const widget = {
-        type: "image-widget",
-        name: "image-widget-" + id,
+        type: "comparer-image-widget",
+        name: "comparer-image-widget-" + id,
         draw: function (ctx, node, widgetWidth, y, widgetHeight) {
             const hidden =
                 node.flags?.collapsed ||
@@ -495,6 +534,230 @@ async function createImageComparerWidget(node, app, id) {
     };
 
     node.comparerWidget = element;
+}
+
+const magnify = (e, idx, imgs, magnifiers) => {
+    let zoomFactor = 3;
+    let windowSizeX = 0.33;
+    let windowSizeY = 0.33;
+
+    let x = e.offsetX;
+    let y = e.offsetY;
+    let xPercent = x / e.toElement.offsetWidth;
+    let yPercent = y / e.toElement.offsetHeight;
+
+    // Clamp values to be inside the box
+    xPercent = Math.max(windowSizeX / 2, Math.min(xPercent, 1.0 - windowSizeX / 2));
+    yPercent = Math.max(windowSizeY / 2, Math.min(yPercent, 1.0 - windowSizeY / 2));
+    x = xPercent * e.toElement.width;
+    y = yPercent * e.toElement.height;
+
+    const img = imgs[idx];
+    const magnifier = magnifiers[idx];
+    // Calculate the position for the background image
+    const bgX = (xPercent * img.offsetWidth);
+    const bgY = (yPercent * img.offsetHeight);
+    const edge = Math.min(img.offsetWidth, img.offsetHeight);
+    const magnifierWidth = windowSizeX * edge * zoomFactor;
+    const magnifierHeight = windowSizeY * edge * zoomFactor;
+    let bgTrueX = Math.max(0, bgX * zoomFactor - magnifier.offsetWidth / 2);
+    let bgTrueY = Math.max(0, bgY * zoomFactor - magnifier.offsetHeight / 2);
+
+
+    for (let i = 0; i < magnifiers.length; i++) {
+        const magnifier = magnifiers[i];
+        const img = imgs[i];
+
+        magnifiers[i].style.display = "block";
+        magnifiers[i].hidden = false;
+
+        magnifier.style.backgroundImage = `url(${img.src})`;
+        magnifier.style.width = magnifierWidth + 'px';
+        magnifier.style.height = magnifierHeight + 'px';
+        magnifier.style.left = (x - magnifier.offsetWidth / 2 + img.offsetLeft) + 'px';
+        magnifier.style.top = (y - magnifier.offsetHeight / 2 + img.offsetTop) + 'px';
+
+        magnifier.style.backgroundSize = `${img.offsetWidth * zoomFactor}px ${img.offsetHeight * zoomFactor}px`;
+        magnifier.style.backgroundPosition = '-' + (bgTrueX) + 'px -' + (bgTrueY) + 'px';
+    }
+
+}
+
+const hideMagnifier = (magnifiers) => {
+    for (let i = 0; i < magnifiers.length; i++) {
+        magnifiers[i].style.display = "none";
+        magnifiers[i].hidden = true;
+    }
+}
+
+async function addManifiers(mainDiv, imageURLS) {
+    const N = imageURLS.length;
+    const imgs = [];
+    const magnifiers = [];
+    const subDivs = [];
+
+    for (let i = 0; i < N; i++) {
+        let subDiv = document.createElement('div');
+        subDiv.style.margin = "5px";
+        subDivs.push(subDiv);
+
+        const img = document.createElement('img');
+        imgs.push(img);
+
+        img.src = imageURLS[i];
+        img.style.width = "100%";
+        img.style.height = "100%";
+        img.style.objectFit = "contain";
+        subDiv.appendChild(img);
+
+
+        let magnifier = document.createElement('div');
+        magnifiers.push(magnifier);
+
+        magnifier.style.position = "absolute";
+        magnifier.style.display = "none";
+        magnifier.hidden = true;
+        magnifier.style.border = "2px solid #000";
+        magnifier.style.borderRadius = "15%";
+        magnifier.style.pointerEvents = "none";
+        magnifier.style.boxSizing = "border-box";
+        subDiv.appendChild(magnifier);
+    }
+
+    for (let i = 0; i < N; i++) {
+        imgs[i].addEventListener('mousemove', (e) => magnify(e, i, imgs, magnifiers));
+        imgs[i].addEventListener('mouseleave', (e) => hideMagnifier(magnifiers));
+    }
+
+    while (mainDiv.firstChild) {
+        mainDiv.removeChild(mainDiv.firstChild);
+    }
+
+    for (let i = 0; i < N; i++) {
+        mainDiv.appendChild(subDivs[i]);
+    }
+}
+
+async function createXYPreviewWidget(node, app, id) {
+    const element = document.createElement('div');
+    element.hidden = true;
+    element.style.display = "none";
+    element.style.justifyContent = "center";
+    element.style.alignItems = "center";
+    element.style.backgroundColor = "white";
+    element.style.flexWrap = "wrap";
+
+    const widget = {
+        type: "XY-preview-image-widget",
+        name: "XY-preview-image-widget-" + id,
+        draw: function (ctx, node, widgetWidth, y, widgetHeight) {
+            const hidden =
+                node.flags?.collapsed ||
+                app.canvas.ds.scale < 0.5 ||
+                widget.computedHeight <= 0 ||
+                widget.type === "converted-widget" ||
+                widget.type === "hidden";
+
+            const mainDiv = node.magnifierWidget;
+            mainDiv.hidden = hidden;
+            mainDiv.style.display = hidden ? "none" : "flex";
+
+            if (hidden) {
+                return;
+            }
+
+            const margin = 10;
+            // ctx.canvas is the Global Canvas to draw nodes
+            const elRect = ctx.canvas.getBoundingClientRect();
+            // getting the transformation matrix of the node
+            const t = ctx.getTransform();
+
+            const transform = new DOMMatrix()
+                .scaleSelf(elRect.width / ctx.canvas.width, elRect.height / ctx.canvas.height)
+                .multiplySelf(ctx.getTransform())
+                .translateSelf(margin, margin + y);
+
+            const firstImg = node?.magnifierWidget?.children[0]?.children[0];
+            if (!firstImg) {
+                return;
+            }
+
+
+
+
+            // Calculate maximum available width and height
+            const maxWidth = Math.max(0, node.size[0] - margin * 4);
+            const maxHeight = Math.max(0, node.size[1] - margin * 5 - widgetHeight);
+
+            Object.assign(mainDiv.style, {
+                left: `${transform.a * margin + transform.e}px`,
+                top: `${transform.d * margin + transform.f}px`,
+                width: `${(maxWidth * transform.a)}px`,
+                height: `${(maxHeight * transform.d)}px`,
+                position: "absolute",
+                zIndex: app.graph._nodes.indexOf(node),
+            });
+
+
+
+            const subDivs = mainDiv.children;
+            if (!subDivs || subDivs.length === 0) {
+                return;
+            }
+
+            const img_per_row = node.widgets.find(w => w.name === "img_per_row")?.value || 1;
+            const img_per_col = Math.ceil(subDivs.length / img_per_row);
+            const aspectRatio = (firstImg.naturalWidth * img_per_row) / (firstImg.naturalHeight * img_per_col);
+
+            // Calculate dimensions while maintaining aspect ratio
+            let width = maxWidth;
+            let height = width / aspectRatio;
+
+            // If height exceeds maxHeight, scale down
+            if (height > maxHeight) {
+                height = maxHeight;
+                width = height * aspectRatio;
+            }
+
+            // Ensure positive dimensions
+            width = Math.max(0, width);
+            height = Math.max(0, height);
+
+            const subDivWidth = width / img_per_row;
+            const subDivHeight = height / img_per_col;
+
+
+            const widthPercentage = 100 / img_per_row;
+
+            for (let i = 0; i < subDivs.length; i++) {
+                const subDiv = subDivs[i];
+                Object.assign(subDiv.style, {
+                    width: `calc(${widthPercentage}% - 10px)`,
+                    height: `auto`,
+                });
+            }
+        },
+    };
+
+    document.body.appendChild(element);
+    node.addCustomWidget(widget);
+
+    const collapse = node.collapse;
+    node.collapse = function () {
+        collapse.apply(this, arguments);
+        if (this.flags?.collapsed) {
+            element.hidden = true;
+            element.style.display = "none";
+        }
+    }
+
+    const onRemoved = node.onRemoved;
+    node.onRemoved = function () {
+        element.remove();
+        onRemoved?.apply(this, arguments);
+    };
+
+    node.magnifierWidget = element;
 }
 
 app.registerExtension(ext);

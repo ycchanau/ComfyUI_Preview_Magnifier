@@ -42,6 +42,33 @@ class PreviewImageMagnifier(PreviewImage):
         )["ui"]["images"]
         return result
 
+class XYPreviewImageMagnifier(PreviewImage):
+    FUNCTION = "do_it"
+
+    @classmethod
+    def INPUT_TYPES(cls):
+        return {
+            "required": {
+                "images": ("IMAGE",),
+                "img_per_row": ("INT", {"default": 1, "min": 1, "max": 10, "step": 1}),
+            },
+            "hidden": {"prompt": "PROMPT", "extra_pnginfo": "EXTRA_PNGINFO"},
+        }
+
+    def do_it(
+        self,
+        images=None,
+        img_per_row=1,
+        filename_prefix="YC.PreviewImageMagnifier.",
+        prompt=None,
+        extra_pnginfo=None,
+    ):
+        result = {"ui": {"a_images": []}}
+        result["ui"]["a_images"] = self.save_images(
+            images, filename_prefix, prompt, extra_pnginfo
+        )["ui"]["images"]
+        return result
+
 class ImageComparerMagnifier(PreviewImage):
     FUNCTION = "do_it"
 
@@ -81,9 +108,11 @@ class ImageComparerMagnifier(PreviewImage):
 NODE_CLASS_MAPPINGS = {
     "YC.PreviewImageMagnifier": PreviewImageMagnifier,
     "YC.ImageComparerMagnifier": ImageComparerMagnifier,
+    "YC.XYPreviewImageMagnifier": XYPreviewImageMagnifier,
 }
 
 NODE_DISPLAY_NAME_MAPPINGS = {
     "YC.PreviewImageMagnifier": "Preview Image Magnifier",
     "YC.ImageComparerMagnifier": "Image Comparer Magnifier",
+    "YC.XYPreviewImageMagnifier": "XY Preview Image Magnifier",
 }
