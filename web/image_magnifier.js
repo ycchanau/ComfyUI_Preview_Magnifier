@@ -107,9 +107,9 @@ const ext = {
                         const img_per_col = Math.ceil(urls.length / img_per_row) || 1;
                         const aspectRatio = (img.width * img_per_row) / (img.height * img_per_col);
                         if (aspectRatio > 1) {
-                            this.setSize([600, 600 / aspectRatio + 40]);
+                            this.setSize([600, 600 / aspectRatio + 60]);
                         } else {
-                            this.setSize([600 * aspectRatio, 600 + 40]);
+                            this.setSize([600 * aspectRatio, 600 + 60]);
                         }
                     }
                 }).then(() => {
