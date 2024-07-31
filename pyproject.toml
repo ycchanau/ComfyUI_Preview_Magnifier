@@ -2,7 +2,7 @@
 name = "comfyui_preview_magnifier"
 description = "Custom nodes that preview image with a magnifier."
 version = "1.0.0"
-license = "LICENSE"
+license = { file = "LICENSE" }
 
 [project.urls]
 Repository = "https://github.com/ycchanau/ComfyUI_Preview_Magnifier"
