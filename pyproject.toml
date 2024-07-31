@@ -1,7 +1,7 @@
 [project]
 name = "comfyui_preview_magnifier"
 description = "Custom nodes that preview image with a magnifier."
-version = "1.0.0"
+version = "1.0.1"
 license = { file = "LICENSE" }
 
 [project.urls]
